@@ -35,7 +35,7 @@ const browserPath = [
 ].find((path) => path && existsSync(path));
 assert.ok(browserPath, "Set BROWSER_PATH to an installed Chromium-based browser.");
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const python = resolve(root, process.platform === "win32" ? ".venv/Scripts/python.exe" : ".venv/bin/python");
+const python = process.env.PYTHON_PATH || resolve(root, process.platform === "win32" ? ".venv/Scripts/python.exe" : ".venv/bin/python");
 const directory = await mkdtemp(join(tmpdir(), "onchain-ui-"));
 const apiPort = await freePort();
 const browserPort = await freePort();
@@ -44,7 +44,10 @@ const api = spawn(python, ["-c", [
   "from onchain_risk_api.app import create_app",
   "from tests.helpers import FakeChainProvider, make_test_settings",
   `uvicorn.run(create_app(settings=make_test_settings(), provider=FakeChainProvider()), host='127.0.0.1', port=${apiPort}, log_level='error')`,
-].join(";")], { cwd: root, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+].join(";")], {
+  cwd: root, env: { ...process.env, PYTHONPATH: resolve(root, "src") },
+  windowsHide: true, stdio: ["ignore", "pipe", "pipe"],
+});
 let serverLog = "";
 api.stdout.on("data", (data) => { serverLog += data; });
 api.stderr.on("data", (data) => { serverLog += data; });
@@ -113,149 +116,56 @@ try {
     await writeFile(path, Buffer.from(image.data, "base64"));
     console.log(`Screenshot (fake test data): ${path}`);
   }
-  async function setInput(selector, value) {
-    await evaluate(`document.querySelector('${selector}').value = ${JSON.stringify(value)}; document.querySelector('${selector}').dispatchEvent(new Event('input', {bubbles:true}));`);
-  }
   await command("Page.enable");
   await command("Runtime.enable");
   await command("Log.enable");
-  await command("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1050, deviceScaleFactor: 1, mobile: false });
+  await command("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await command("Page.navigate", { url: `http://127.0.0.1:${apiPort}/` });
   await waitFor(() => evaluate("document.querySelector('#connection')?.classList.contains('ready')"), "Network did not verify.");
   assert.equal(await evaluate("document.querySelector('#network-name').textContent"), "base-sepolia");
+  assert.equal(await evaluate("document.querySelectorAll('main textarea').length"), 1);
+  assert.equal(await evaluate("document.querySelectorAll('[role=tab]').length"), 0);
   await screenshot("desktop-empty.png");
 
-  const address = "0x" + "11".repeat(20);
-  await setInput("#subject", address);
   await evaluate("document.querySelector('#query-form').requestSubmit()");
-  await waitFor(() => evaluate("!!document.querySelector('#result-content')"), "Balance did not render.");
-  assert.equal(await evaluate("document.querySelector('#result-value').textContent"), "1.000000000000000001");
-  await screenshot("desktop-balance.png");
+  await waitFor(() => evaluate("document.querySelector('#query-error')?.textContent.includes('请输入')"), "Blank prompt was accepted.");
 
-  await setInput("#subject", "0x123");
-  await evaluate("document.querySelector('#query-form').requestSubmit()");
-  await waitFor(() => evaluate("!!document.querySelector('#query-error')"), "Input error did not render.");
-  assert.equal(await evaluate("!!document.querySelector('#result-content')"), false);
-
-  await setInput("#subject", address);
-  await setInput("#block-number", "-1");
-  await evaluate("document.querySelector('#query-form').requestSubmit()");
-  await waitFor(() => evaluate("document.querySelector('#query-error')?.textContent.includes('区块号')"), "Invalid block was accepted.");
-  await setInput("#block-number", "123");
-  await evaluate("document.querySelector('#query-form').requestSubmit()");
-  await waitFor(() => evaluate("!!document.querySelector('#result-content')"), "Historical balance did not render.");
-
-  await evaluate("document.querySelector('#balance-tab').dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowRight', bubbles:true}));");
-  assert.equal(await evaluate("document.querySelector('#token-balance-tab').getAttribute('aria-selected')"), "true");
-  assert.equal(await evaluate("!!document.querySelector('#spender-address')"), false);
-  await evaluate("document.querySelector('#token-balance-tab').dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowRight', bubbles:true}));");
-  assert.equal(await evaluate("document.querySelector('#receipt-tab').getAttribute('aria-selected')"), "true");
-  const hash = "0x" + "cd".repeat(32);
-  await setInput("#subject", hash);
-  await evaluate("document.querySelector('#query-form').requestSubmit()");
-  await waitFor(() => evaluate("!!document.querySelector('#result-content')"), "Receipt did not render.");
-  assert.equal(await evaluate("document.querySelector('#result-value').textContent"), "执行成功");
-
-  const minedReceipt = await evaluate("JSON.parse(document.querySelector('.raw-data pre').textContent)");
-  await command("Fetch.enable", { patterns: [{ urlPattern: "*/receipt", requestStage: "Request" }] });
-  mockResponse = { status: 200, body: { ...minedReceipt, status: "pending", executionStatus: null,
-    blockNumber: null, blockHash: null, blockTimestamp: null } };
-  await evaluate("document.querySelector('#query-form').requestSubmit()");
-  await waitFor(() => evaluate("document.querySelector('#result-value')?.textContent === '等待打包'"), "Pending receipt was misrepresented.");
-
-  mockResponse = { status: 503, body: { error: { code: "RPC_UNAVAILABLE", message: "secret" } } };
-  await evaluate("document.querySelector('#query-form').requestSubmit()");
-  await waitFor(() => evaluate("document.querySelector('#query-error')?.textContent.includes('节点')"), "RPC error did not render.");
-  assert.equal(await evaluate("!!document.querySelector('#result-content')"), false);
-  assert.equal(await evaluate("document.body.textContent.includes('secret')"), false);
-  mockResponse = undefined;
-  await evaluate("document.querySelector('#query-form').requestSubmit()");
-  await waitFor(() => evaluate("!!document.querySelector('#result-content')"), "Retry did not render.");
+  await command("Fetch.enable", { patterns: [{ urlPattern: "*/v1/investigations", requestStage: "Request" }] });
+  const completed = {
+    status: "completed", stopReason: "COMPLETED", answer: "**地址余额已核对**，仍需结合更多证据。\n\n- 区块 `123`",
+    answerIsModelGenerated: true, modelCalls: 2, toolCalls: 1,
+    inputTokens: 120, outputTokens: 48,
+    trace: [{ step: 1, kind: "tool", callId: "call-1", toolName: "get_native_balance", result: { status: "ok" } }],
+    error: null,
+  };
+  mockResponse = { status: 200, body: completed };
+  await evaluate("document.querySelector('#subject').value = '调查这个地址'; document.querySelector('#subject').dispatchEvent(new Event('input', {bubbles:true})); document.querySelector('#query-form').requestSubmit()");
+  await waitFor(() => evaluate("document.querySelector('#investigation-content')?.textContent.includes('地址余额已核对')"), "Investigation answer did not render.");
+  assert.equal(await evaluate("document.querySelector('.agent-answer strong')?.textContent"), "地址余额已核对");
+  assert.equal(await evaluate("document.querySelector('.agent-answer li code')?.textContent"), "123");
+  assert.equal(await evaluate("document.querySelector('.trace-data summary').textContent.includes('1 步')"), true);
+  assert.equal(await evaluate("document.querySelector('.trace-data').open"), false);
+  await screenshot("desktop-result.png");
 
   await command("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
-  await evaluate("window.scrollTo(0,0)");
+  await evaluate("window.scrollTo(0, 0)");
   assert.equal(await evaluate("document.documentElement.scrollWidth <= window.innerWidth"), true, "Mobile horizontal overflow");
-  await screenshot("mobile.png");
-  await evaluate("document.querySelector('#allowance-tab').click()");
-  assert.equal(await evaluate("document.querySelector('#allowance-tab').textContent.trim()"), "查授权");
-  await setInput("#token-address", address);
-  await setInput("#owner-address", address);
-  await setInput("#spender-address", address);
-  await setInput("#block-number", "123");
-  await command("Fetch.enable", { patterns: [{ urlPattern: "*/allowance*", requestStage: "Request" }] });
-  const maximumAllowance = ((1n << 256n) - 1n).toString();
-  const allowanceResponse = {
-    evidence: { evidenceId: "evidence:" + "ab".repeat(32), network: "base-sepolia",
-      chainId: 84532, provider: "fake", tokenAddress: address, ownerAddress: address,
-      spenderAddress: address, allowanceSmallestUnit: maximumAllowance, blockNumber: 123,
-      blockHash: "0x" + "ab".repeat(32), blockTimestamp: "2026-10-30T00:00:00Z",
-      observedAt: "2026-10-30T00:00:01Z" },
-    findings: [{ findingId: "finding:1", ruleId: "ERC20_MAX_ALLOWANCE", ruleVersion: 1,
-      severity: "attention", evidenceIds: ["evidence:" + "ab".repeat(32)], summary: "Maximum allowance" }],
-    limitations: ["单个区块的只读快照，不构成安全结论。"],
-  };
-  mockResponse = { status: 200, body: allowanceResponse };
+  await screenshot("mobile-result.png");
+
+  mockResponse = { status: 200, body: {
+    ...completed, status: "error", stopReason: "LLM_CONNECTION_ERROR", answer: null,
+    modelCalls: 1, toolCalls: 0, inputTokens: 0, outputTokens: 0, trace: [],
+    error: { code: "LLM_CONNECTION_ERROR", message: "private transport detail" },
+  } };
   await evaluate("document.querySelector('#query-form').requestSubmit()");
-  await waitFor(() => evaluate("!!document.querySelector('#allowance-content')"), "Allowance did not render.");
-  assert.equal(await evaluate("document.querySelector('#allowance-value').textContent"), maximumAllowance);
-  assert.equal(await evaluate("document.querySelector('#allowance-content').textContent.includes('ERC20_MAX_ALLOWANCE')"), true);
-  assert.equal(await evaluate("document.documentElement.scrollWidth <= window.innerWidth"), true, "Allowance mobile horizontal overflow");
-  await screenshot("mobile-allowance.png");
-  mockResponse = { status: 200, body: { ...allowanceResponse, findings: [] } };
-  await evaluate("document.querySelector('#query-form').requestSubmit()");
-  await waitFor(() => evaluate("document.querySelector('#allowance-content')?.textContent.includes('不代表合约或授权安全')"), "Empty findings implied safety.");
-  mockResponse = { status: 200, body: { ...allowanceResponse,
-    evidence: { ...allowanceResponse.evidence, ownerAddress: "0x" + "22".repeat(20) } } };
-  await evaluate("document.querySelector('#query-form').requestSubmit()");
-  await waitFor(() => evaluate("document.querySelector('#query-error')?.textContent.includes('预期不一致')"), "Mismatched owner was displayed.");
-  assert.equal(await evaluate("!!document.querySelector('#allowance-content')"), false);
-  mockResponse = { status: 404, body: { error: { code: "TOKEN_NOT_CONFIGURED", message: "secret" } } };
-  await evaluate("document.querySelector('#query-form').requestSubmit()");
-  await waitFor(() => evaluate("document.querySelector('#query-error')?.textContent.includes('白名单')"), "Allowlist failure was not explained.");
-  assert.equal(await evaluate("!!document.querySelector('#allowance-content')"), false);
-  assert.equal(await evaluate("document.body.textContent.includes('secret')"), false);
-  await evaluate("document.querySelector('#balance-tab').click()");
-  assert.equal(await evaluate("!!document.querySelector('#allowance-content')"), false);
-  await evaluate("document.querySelector('#token-balance-tab').click()");
-  await setInput('#token-address', address);
-  await setInput('#owner-address', address);
-  await command('Fetch.enable', { patterns: [{ urlPattern: '*/tokens/*/balance*', requestStage: 'Request' }] });
-  const tokenResponse = { evidence: {
-    ...allowanceResponse.evidence, balanceSmallestUnit: '1000001', decimals: 6,
-    balanceFormatted: '1.000001', metadataError: null,
-  }, limitations: ['Only requested token; not safety.'] };
-  mockResponse = { status: 200, body: tokenResponse };
-  await evaluate("document.querySelector('#query-form').requestSubmit()");
-  await waitFor(() => evaluate("!!document.querySelector('#token-balance-content')"), 'Token balance did not render.');
-  assert.equal(await evaluate("document.querySelector('#token-balance-value').textContent"), '1.000001');
-  assert.equal(await evaluate("!!document.querySelector('#spender-address')"), false);
-  mockResponse = { status: 200, body: { ...tokenResponse, evidence: { ...tokenResponse.evidence,
-    decimals: null, balanceFormatted: null, metadataError: { code: 'TOKEN_CALL_FAILED', message: 'Unavailable' } } } };
-  await evaluate("document.querySelector('#query-form').requestSubmit()");
-  await waitFor(() => evaluate("document.querySelector('#token-balance-value')?.textContent === '1000001'"), 'Unknown decimals did not preserve smallest units.');
-  assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'), true, 'Token balance mobile overflow');
-  await evaluate("document.querySelector('#activity-tab').click()");
-  await setInput('#token-address', address);
-  await setInput('#owner-address', address);
-  await setInput('#from-block', '100');
-  await setInput('#to-block', '200');
-  const activityResponse = { network: 'base-sepolia', chainId: 84532, provider: 'fake',
-    tokenAddress: address, ownerAddress: address, fromBlock: 100, toBlock: 200,
-    events: [{ transactionHash: hash, blockNumber: 123, logIndex: 0,
-      fromAddress: address, toAddress: address, amountSmallestUnit: '7' }],
-    evidenceId: 'evidence:' + 'cd'.repeat(32), observedAt: '2026-10-30T00:00:01Z',
-    findings: [{ findingId: 'finding:' + 'ef'.repeat(32), ruleId: 'ERC20_ZERO_ADDRESS_SOURCE',
-      ruleVersion: 1, severity: 'attention', evidenceIds: ['evidence:' + 'cd'.repeat(32)],
-      summary: 'Mint-like event evidence only.' }],
-    limitations: ['bounded activity only'] };
-  mockResponse = { status: 200, body: activityResponse };
-  await evaluate("document.querySelector('#query-form').requestSubmit()");
-  await waitFor(() => evaluate("!!document.querySelector('#activity-content')"), 'Transfer activity did not render.');
-  assert.equal(await evaluate("document.querySelector('#activity-count').textContent"), '1 条事件');
-  assert.equal(await evaluate("document.querySelector('#activity-content').textContent.includes('ERC20_ZERO_ADDRESS_SOURCE')"), true);
-  const unexpectedErrors = errors.filter((error) => !error.includes("status of 503") && !error.includes("status of 404"));
-  assert.deepEqual(unexpectedErrors, [], "Browser runtime or CSP errors");
-  console.log("Browser smoke passed: network, exact balance, input/block validation, keyboard tabs, receipt, pending, RPC errors, retry, allowance evidence/findings/errors, token balance without spender, transfer activity, missing decimals and mobile layout.");
+  await waitFor(() => evaluate("document.querySelector('#investigation-content')?.textContent.includes('LLM_CONNECTION_ERROR')"), "Model failure did not render.");
+  assert.equal(await evaluate("document.body.textContent.includes('private transport detail')"), false);
+  assert.equal(await evaluate("document.documentElement.scrollWidth <= window.innerWidth"), true, "Error mobile horizontal overflow");
+  await evaluate("document.querySelector('.new-button').click()");
+  assert.equal(await evaluate("document.querySelector('#subject').value"), "");
+  assert.equal(await evaluate("!!document.querySelector('#investigation-content')"), false);
+  assert.deepEqual(errors, [], "Browser runtime or CSP errors");
+  console.log("Browser smoke passed: network, prompt validation, investigation, trace, model error, reset and mobile layout.");
 } catch (error) {
   console.error("Browser errors:", errors);
   console.error("Mock server output:", serverLog);

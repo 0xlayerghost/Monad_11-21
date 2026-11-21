@@ -6,6 +6,16 @@ import {
   validateAllowanceQuery, validateInvestigationPrompt, validateQuery,
   assertTokenBalanceResult, validateTokenBalanceQuery, assertTransferActivityResult, validateTransferActivityQuery,
 } from "../../frontend/src/api.ts";
+import { renderInvestigationAnswer } from "../../frontend/src/markdown.ts";
+
+test('model Markdown renders as readable text without accepting raw HTML or unsafe links', () => {
+  const html = renderInvestigationAnswer('**余额**：`100 MON`\n\n- 区块 123\n\n<script>alert(1)</script>\n\n[危险](javascript:alert(1))');
+  assert.match(html, /<strong>余额<\/strong>/);
+  assert.match(html, /<code>100 MON<\/code>/);
+  assert.match(html, /<li>区块 123<\/li>/);
+  assert.equal(html.includes('<script>'), false);
+  assert.equal(html.includes('href="javascript:'), false);
+});
 
 const address = "0x" + "11".repeat(20);
 const hash = "0x" + "cd".repeat(32);
