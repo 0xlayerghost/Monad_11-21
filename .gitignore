@@ -1,4 +1,7 @@
 .env
+.env.*
+!.env.example
+.vercel/
 /docs/
 /AI学习路线.md
 /AI学习路线图.html

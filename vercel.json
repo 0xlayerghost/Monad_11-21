@@ -1,0 +1,23 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "fastapi",
+  "buildCommand": "npm --prefix frontend ci --no-audit --no-fund && npm --prefix frontend run build",
+  "functions": {
+    "app.py": {
+      "maxDuration": 120
+    }
+  },
+  "env": {
+    "NETWORK_NAME": "monad-testnet",
+    "EXPECTED_CHAIN_ID": "10143",
+    "NATIVE_SYMBOL": "MON",
+    "NATIVE_DECIMALS": "18",
+    "RPC_PROVIDER_NAME": "monad-foundation",
+    "RPC_URL": "https://testnet-rpc.monad.xyz"
+  },
+  "build": {
+    "env": {
+      "RPC_URL": "https://testnet-rpc.monad.xyz"
+    }
+  }
+}

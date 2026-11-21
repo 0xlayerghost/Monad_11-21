@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+.mojo
+.git
+.venv
+__pycache__
+.pytest_cache
+.ruff_cache
+frontend/node_modules
+frontend/.npm-cache
+src/onchain_risk_api/web/static
+tests
+artifacts
