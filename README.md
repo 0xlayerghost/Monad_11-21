@@ -1,8 +1,31 @@
-# Onchain Analytics Risk Management
-所有答案解释都以一个智能合约开发的视角来回答
-一个可配置单条 EVM 网络的只读链上数据分析与风控项目。公开配置模板当前指向 Monad 测试网；
-网络标识、chain ID、原生币、RPC 服务商和 RPC URL 均由环境变量提供。项目后续目标是
-链上风险调查 Agent；每个服务进程只连接一个配置网络，避免混用不同链的数据。
+# Monad 链证
+
+Monad 测试网的只读链上调查工作台。用户用自然语言询问明确的地址、代币或交易，
+Agent 调用受限的链上工具，展示回答、调用过程和可核对的区块或交易证据。
+项目也提供 CLI Skill 与只读 HTTP 接口，供其他获准访问的 Agent 复用事实查询。
+不执行交易，不枚举地址的完整历史，也不把查询失败解释成链上不存在。
+
+**演示：** [打开前端](https://monad-onchain-investigation.vercel.app/) ·
+**代码：** [GitHub](https://github.com/0xlayerghost/Monad_11-21) ·
+**部署：** [Vercel 配置与验证](DEPLOYMENT.md)
+
+![Monad 链证真实测试网交易调查：链上证据与工具调用过程](assets/monad-lianzheng-investigation.png)
+
+## 项目概述与技术栈
+
+- 前端：Vue 3、TypeScript、Vite；单页 AI Investigation 展示答案、工具 trace 与原始 JSON。
+- 后端：Python 3.12、FastAPI、Pydantic、web3.py；单进程只连接一个配置的 EVM 网络，
+  查询前校验 RPC 报告的 chain ID，保留区块来源和失败状态。
+- 调查：可选的 DeepSeek 模型循环调用五个只读工具；无模型 key 时，只读 API 仍可使用。
+- 互操作：本地 `list` / `call` CLI、[Agent Skill](skills/onchain-investigation/SKILL.md)
+  与 [HTTP 接入说明](skills/onchain-investigation/references/remote-http.md)。
+
+演示页面无需账号。模型调用依赖部署方临时配置的服务端 key；key 撤销后，
+页面的 AI 调查会不可用，已配置网络的只读 GET 接口仍可查询。
+黑客松提交用的简短介绍见 [提交材料](SUBMISSION.md)。
+
+网络标识、chain ID、原生币、RPC 服务商和 RPC URL 均由环境变量提供。
+公开配置模板当前指向 Monad 测试网；每个服务进程只连接一个网络，避免混用数据。
 
 ## 建议阅读顺序：先最小展示，再完整流程
 

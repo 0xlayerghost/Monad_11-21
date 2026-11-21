@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "onchain-risk-api"
 version = "0.1.0"
-description = "Read-only configurable EVM on-chain analytics and risk-management API"
+description = "Monad Lianzheng: read-only on-chain investigation for configured EVM networks"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 dependencies = [

@@ -33,7 +33,7 @@ async def workbench() -> FileResponse | HTMLResponse:
     if not index.is_file():
         return HTMLResponse(
             '<!doctype html><html lang="zh-CN"><meta charset="utf-8">'
-            '<title>链上手记</title><h1>前端尚未构建</h1>'
+            '<title>Monad 链证</title><h1>前端尚未构建</h1>'
             '<p>进入项目的 frontend 文件夹，运行 npm ci 和 npm run build，'
             '然后重启后端。</p><p><a href="/docs">API 文档仍可使用</a></p></html>',
             status_code=503,

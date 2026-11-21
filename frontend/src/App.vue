@@ -122,7 +122,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="page">
     <header class="header">
-      <a class="brand" href="/" aria-label="链上调查首页"><span class="brand-mark" aria-hidden="true">M</span><span>链上调查</span></a>
+      <a class="brand" href="/" aria-label="Monad 链证首页"><span class="brand-mark" aria-hidden="true">M</span><span>Monad 链证</span></a>
       <div id="connection" class="connection" :class="networkState" role="status">
         <span class="status-dot" aria-hidden="true"></span>
         <span id="network-name">{{ config?.networkName ?? '连接服务' }}</span>
@@ -135,7 +135,7 @@ onBeforeUnmount(() => {
       <div class="section-heading">
         <div>
           <p class="eyebrow">AI INVESTIGATION <span class="divider">/</span> READ ONLY</p>
-          <h1>开始调查</h1>
+          <h1>Monad 链证</h1>
         </div>
         <button v-if="result || queryError" class="text-button new-button" type="button" @click="newInvestigation">新调查</button>
       </div>

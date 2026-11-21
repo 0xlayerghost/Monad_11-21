@@ -1,7 +1,8 @@
-# Vercel 部署
+# Monad 链证：Vercel 部署
 
 本项目使用 Vercel FastAPI preset。`app.py` 加载现有后端，构建命令先安装并构建
 Vue 前端，生成到后端的 `web/static/`。前端与 API 使用同一域名。
+当前公开演示地址：<https://monad-onchain-investigation.vercel.app/>。
 
 `vercel.json` 默认配置 Monad Testnet（chain ID 10143，原生币 MON）和公开 RPC。
 构建需要 Node.js 22.18+、Python 3.12。`.vercelignore` 排除本地凭证和开发环境。
