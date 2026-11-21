@@ -1,0 +1,23 @@
+{
+  "toolName": "get_transaction_receipt",
+  "status": "ok",
+  "data": {
+    "status": "mined",
+    "network": "base-sepolia",
+    "chainId": 84532,
+    "provider": "blockpi",
+    "transactionHash": "0xce374b82a8189f8ac40082f4484dcdfe93dd2074abefdf7fa7902afa417be98d",
+    "observedAt": "2026-10-30T07:35:25.720323Z",
+    "executionStatus": "success",
+    "blockNumber": 52118979,
+    "blockHash": "0xfe6cbfb90954cba94d723dff8a8658dd945100f53c7bc11bf7a4085f2c87e121",
+    "blockTimestamp": "2026-10-30T07:34:24Z",
+    "transactionIndex": 0,
+    "fromAddress": "0xDeaDDEaDDeAdDeAdDEAdDEaddeAddEAdDEAd0001",
+    "toAddress": "0x4200000000000000000000000000000000000015",
+    "contractAddress": null,
+    "gasUsed": "46158",
+    "effectiveGasPrice": "0"
+  },
+  "error": null
+}
