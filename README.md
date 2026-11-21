@@ -1,6 +1,6 @@
 # Onchain Analytics Risk Management
 所有答案解释都以一个智能合约开发的视角来回答
-一个可配置单条 EVM 网络的只读链上数据分析与风控项目。当前默认使用 Base Sepolia；
+一个可配置单条 EVM 网络的只读链上数据分析与风控项目。公开配置模板当前指向 Monad 测试网；
 网络标识、chain ID、原生币、RPC 服务商和 RPC URL 均由环境变量提供。项目后续目标是
 链上风险调查 Agent；每个服务进程只连接一个配置网络，避免混用不同链的数据。
 
@@ -39,7 +39,7 @@
   区分 pending、已打包成功或 revert，并补充所在区块的时间。
 - 统一、可机器读取的错误响应；不会在响应中返回 RPC URL 或凭证。
 - 离线单元测试，以及显式启用的当前 RPC 集成测试。
-- 四个只读工具的注册表、严格参数校验及本地 CLI（原生币余额、代币余额、回执、指定 ERC-20 授权）。
+- 五个只读工具的注册表、严格参数校验及本地 CLI（原生币余额、代币余额、指定 ERC-20 Transfer 活动、授权、回执）。
 - 本地最小 LLM loop：可配置模型、有限预算、工具 trace，已完成一次真实调用。
 - 本机网页 AI 调查入口：复用同一有限预算 loop，展示模型答案和工具 trace。
 
@@ -74,13 +74,25 @@ Copy-Item .env.example .env
 编辑本地 `.env`，填写目标网络对应的 endpoint 和网络参数。不要提交 `.env`，也不要
 把 endpoint 或 API key 写入代码、日志和测试 fixture。
 
-`.env.example` 默认配置为 Base Sepolia。切换网络时，需要一起更改 `NETWORK_NAME`、
+`.env.example` 默认配置为 Monad 测试网（`monad-testnet` / `10143` / `MON` / `18`，
+公开 dRPC endpoint）。切换网络时，需要一起更改 `NETWORK_NAME`、
 `EXPECTED_CHAIN_ID`、`NATIVE_SYMBOL`、`NATIVE_DECIMALS`、`RPC_PROVIDER_NAME` 和 `RPC_URL`；
 服务会验证 RPC 实际返回的 chain ID，不符时拒绝查询。示例：BSC Mainnet 使用
 `bsc` / `56` / `BNB` / `18`，Arbitrum One 使用 `arbitrum-one` / `42161` / `ETH` / `18`。
 chain ID 示例不代表自动提供对应网络的 RPC endpoint，`RPC_URL` 必须由你选择的服务商提供。
 Base Sepolia 与 Base Mainnet 分别填写 `base-sepolia` / `84532` 和 `base` / `8453`。
 重启服务后配置生效；每个进程仅服务一个网络。
+
+其他本地 Agent 可按 [只读调查 Skill](skills/onchain-investigation/SKILL.md) 调用现有工具；
+[Monad 测试网 Demo](skills/onchain-investigation/references/monad-testnet-demo.md) 提供经两个公开 RPC 核对的固定样本。
+仓库中的 Skill 文件本身不会自动安装到 Agent，也不会自动接入 Agent Hub。
+部署后其他 Agent 可通过 [只读 HTTP 接入说明](skills/onchain-investigation/references/remote-http.md)
+接入自己的 HTTP 工具；说明附有真实测试网示例输入。当前尚未提供公网鉴权和限流，
+因此不能直接把服务作为公开 Agent API 发布，也不能公开无鉴权的 `POST /v1/investigations`。
+DeepSeek 的 `LLM_API_KEY` 仅供服务端 AI Investigation 使用；清空并重启服务后，
+五个只读 GET 查询仍可工作，而 AI Investigation 会返回 `LLM_NOT_CONFIGURED`。
+若仅撤销 DeepSeek key 却仍在本地保留旧值，AI Investigation 会尝试请求并得到模型错误。
+DeepSeek key 的失效不会自动撤销部署服务的 HTTP 访问权限；远程访问凭证需单独管理。
 
 启动服务：
 
@@ -209,7 +221,8 @@ Invoke-RestMethod "http://127.0.0.1:8000/v1/networks/$network/transactions/$tx/r
 授权真实样例可用独立的 [快照采集与核对命令](docs/phase-3/snapshot-capture.md) 保存候选，
 再与固定区块的独立来源核对；不调用模型，不自动认证来源或将模拟数据变成真实 fixture。
 
-目前注册 `get_native_balance`、`get_transaction_receipt` 和 `get_erc20_allowance` 三个只读工具，
+目前注册 `get_native_balance`、`get_transaction_receipt`、`get_erc20_allowance`、
+`get_erc20_balance` 和 `get_erc20_transfer_activity` 五个只读工具，
 复用现有服务，拒绝未知工具和额外参数；不允许模型传入 RPC URL 或私钥。
 授权工具仅查询白名单内的明确三方地址并返回最大授权关注项；历史、更多规则和检索仍未完成。
 授权工具已完成离线回归，真实模型与授权 RPC 联调仍待验收，见 [调用说明](docs/phase-3/agent-allowance.md)。
@@ -253,7 +266,7 @@ docs/
 
 ## 本地 LLM 最小闭环
 
-已增加 `python -m onchain_risk_api.llm`：模型提出调用，程序校验后执行已注册的三个只读工具，
+已增加 `python -m onchain_risk_api.llm`：模型提出调用，程序校验后执行已注册的五个只读工具，
 再把结果交回模型。配置、PowerShell 命令、预算与安全边界见 [LLM 使用说明](docs/llm.md)。
 
 模型协议与循环已完成一次真实模型、真实 RPC 调用，但尚未完成批量评测；

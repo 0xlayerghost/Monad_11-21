@@ -1,0 +1,43 @@
+{
+  "network": "monad-testnet",
+  "chainId": 10143,
+  "verifiedOn": "2026-11-21",
+  "purpose": "Fixed public inputs for live read-only queries; never substitute expected values for a response.",
+  "queries": [
+    {
+      "name": "network_status",
+      "method": "GET",
+      "path": "/v1/networks/monad-testnet/status"
+    },
+    {
+      "name": "transaction_receipt",
+      "method": "GET",
+      "path": "/v1/networks/monad-testnet/transactions/0xbb02e99311baec22c63e6cd49fb15da5ba3dd430aee32fd9be6aa899a349fe9b/receipt",
+      "cliTool": "get_transaction_receipt",
+      "cliArguments": {
+        "network_name": "monad-testnet",
+        "transaction_hash": "0xbb02e99311baec22c63e6cd49fb15da5ba3dd430aee32fd9be6aa899a349fe9b"
+      },
+      "historicalReference": {
+        "blockNumber": 81521391,
+        "blockHash": "0xdd248f95b73a77e1c203699243b778760291926d685be0ccf8ca5047ff47ab42",
+        "executionStatus": "success"
+      }
+    },
+    {
+      "name": "native_balance_at_block",
+      "method": "GET",
+      "path": "/v1/networks/monad-testnet/addresses/0x6f49a8F621353f12378d0046E7d7e4b9B249DC9e/balance?blockNumber=81521391",
+      "cliTool": "get_native_balance",
+      "cliArguments": {
+        "network_name": "monad-testnet",
+        "address": "0x6f49a8F621353f12378d0046E7d7e4b9B249DC9e",
+        "block_number": 81521391
+      },
+      "historicalReference": {
+        "balanceSmallestUnit": "500414000000000000",
+        "blockHash": "0xdd248f95b73a77e1c203699243b778760291926d685be0ccf8ca5047ff47ab42"
+      }
+    }
+  ]
+}
